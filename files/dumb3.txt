@@ -1,0 +1,39 @@
+string res;
+
+int* v;
+
+int** a;
+int*** b;
+
+
+read_file("files/adumb1.txt",res);
+change_status(res,false);
+print(res);
+
+string private_key, public_key;
+int encrypted_data, decrypted_data;
+generate_rsa_key_pair(512,private_key,public_key);
+encrypted_data = encrypt_rsa("first encryption",public_key);
+decrypted_data = decrypt_rsa("first decryption",private_key);
+
+
+
+*v = 30;
+*a = v;
+*b = a;
+
+**a=44;
+
+int* da;
+
+
+print(res);
+
+change_status(res,true);
+
+write_file("files/adumb1.txt","first line \n second line");
+
+
+print(*v);
+print("\n**a + *v\n\n");
+print(***b+**a + *v);

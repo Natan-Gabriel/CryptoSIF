@@ -1,0 +1,15 @@
+int a,b,c;
+a = read();
+b = 4;
+c = a + b;
+goto c;
+
+print("a=");
+print(a);
+print("\nb=");
+print(b);
+print("\nc=");
+print(c);
+
+
+

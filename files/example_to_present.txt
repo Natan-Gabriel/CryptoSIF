@@ -1,0 +1,5 @@
+string private_key, public_key;
+generate_rsa_key_pair(512,private_key,public_key);
+
+print(public_key);
+print(private_key);

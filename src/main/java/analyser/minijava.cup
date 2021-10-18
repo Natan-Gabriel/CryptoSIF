@@ -1,0 +1,286 @@
+//CUP Parser Generator Copyright Notice, License, and Disclaimer
+//Copyright 1996-2015 by Scott Hudson, Frank Flannery, C. Scott Ananian, Michael Petter
+//Permission to use, copy, modify, and distribute this software and its documentation for any purpose and without fee is hereby granted, provided that the above copyright notice appear in all copies and that both the copyright notice and this permission notice and warranty disclaimer appear in supporting documentation, and that the names of the authors or their employers not be used in advertising or publicity pertaining to distribution of the software without specific, written prior permission.
+
+//The authors and their employers disclaim all warranties with regard to this software, including all implied warranties of merchantability and fitness. In no event shall the authors or their employers be liable for any special, indirect or consequential damages or any damages whatsoever resulting from loss of use, data or profits, whether in an action of contract, negligence or other tortious action, arising out of or in connection with the use or performance of this software.
+
+//This is an open source license. It is also GPL-Compatible (see entry for "Standard ML of New Jersey"). The portions of CUP output which are hard-coded into the CUP source code are (naturally) covered by this same license, as is the CUP runtime code linked with the generated parser.
+//Java is a trademark of Sun Microsystems, Inc. References to the Java programming language in relation to JLex are not meant to imply that Sun endorses this product.
+
+
+
+
+// I partially used and I adapted the code provided by: Technische Universitaet Muenchen Fakultaet fuer Informatik at http://www2.cs.tum.edu/projects/cup/examples.php
+
+package analyser;
+import model.stmt.*;
+import model.exp.*;
+import model.types.*;
+import model.values.*;
+import java.util.*;
+import java.io.*;
+import java_cup.runtime.Symbol;
+import java_cup.runtime.ComplexSymbolFactory.ComplexSymbol;
+import java_cup.runtime.ComplexSymbolFactory;
+import java_cup.runtime.ScannerBuffer;
+import javafx.util.Pair;
+parser code {:
+
+  public boolean syntaxErrors;
+
+
+  Lexer lexer;
+
+  public Parser(Lexer lex, ComplexSymbolFactory sf) {
+    super(lex,sf);
+    lexer = lex;
+  }
+
+  public static void main(String[] args) throws Exception {
+        // initialize the symbol factory
+        ComplexSymbolFactory csf = new ComplexSymbolFactory();
+        // create a buffering scanner wrapper
+        ScannerBuffer lexer = new ScannerBuffer(new Lexer(new BufferedReader(new FileReader(args[0])),csf));
+        // start parsing
+        Parser p = new Parser(lexer,csf);
+
+        //XMLElement e = (XMLElement)p.parse().value;
+        //System.out.println("aici");
+        //System.out.println(p.parse().value);
+    }
+
+
+    public synchronized static Object parse(String arg) throws Exception {
+        // initialize the symbol factory
+        ComplexSymbolFactory csf = new ComplexSymbolFactory();
+        // create a buffering scanner wrapper
+        ScannerBuffer lexer = new ScannerBuffer(new Lexer(new BufferedReader(new FileReader(arg)),csf));
+        // start parsing
+        Parser p = new Parser(lexer,csf);
+
+        //XMLElement e = (XMLElement)p.parse().value;
+        //System.out.println("aici");
+        Object res=p.parse().value;
+        //System.out.println("res:"+res+"res_printed");
+        return res;
+
+    }
+
+
+:};
+
+terminal         SEMICOLON, COMMA, LPAR, RPAR, BEGIN, END,IF, ELSE, WHILE, FOR, READ, READ_HEAP, OPEN_FILE, READ_FILE, CLOSE_FILE, WRITE_FILE, WRITE, PRINT, BUNOP, ASSIGN, GOTO, ALLOCATE_AT, REF, WRITE_HEAP, CHANGE_STATUS, GENERATE_RSA_KEY_PAIR, ENCRYPT_RSA, DECRYPT_RSA;
+terminal Integer UNOP, INTCONST;
+terminal String  IDENT,STRINGCONST,COMP,BBINOP,REFERENCE;
+terminal char BINOPPRIORITY1,BINOPPRIORITY2;
+terminal Boolean BOOLCONST;
+terminal Type TYPE;
+
+
+non terminal IStmt program;
+non terminal IStmt decllist,stmtlist;
+non terminal Pair<String,Exp> assignment;
+non terminal List<Pair<String,Exp>> identlist;
+non terminal Pair<Integer,String> write_heap;
+non terminal IStmt decl,stmt;
+non terminal Exp expr,logicexpr,stringexp,identifier;
+
+precedence left COMP;
+precedence left BINOPPRIORITY2;
+precedence left BINOPPRIORITY1;
+precedence left ELSE, UNOP, BUNOP, BBINOP;
+
+program   ::=  stmtlist:s
+    {: RESULT = s; :}
+    ;
+decllist  ::=  decl:d decllist:dl
+    {:
+    dl=new CompStmt(d,dl); RESULT = dl;
+    :}
+    | /* empty decllist */
+    {: RESULT = new NopStmt(); :}
+    ;
+
+decl ::= TYPE:type assignment:i identlist:il SEMICOLON
+    {: //System.out.println(i) ;
+    IStmt res=new NopStmt();
+    for(Pair<String,Exp> elem : il){
+        res=new CompStmt(new VarDeclStmt(elem.getKey(),type,typexleft.getLine()),res);
+        if(elem.getValue()!=null){
+            res=new CompStmt(new AssignStmt(elem.getKey(),elem.getValue(),typexleft.getLine()),res);
+        }
+    }
+    res=new CompStmt(new VarDeclStmt(i.getKey(),type,typexleft.getLine()),res);
+    if(i.getValue()!=null){
+        res=new CompStmt(new AssignStmt(i.getKey(),i.getValue(),typexleft.getLine()),res);
+    }
+    RESULT = res; :}
+    ;
+
+assignment ::= IDENT:i ASSIGN expr:e
+     {:
+     RESULT = new Pair<String,Exp>(i,e);
+     :}
+     | IDENT:i
+     {:
+        RESULT = new Pair<String,Exp>(i,null);
+     :}
+    ;
+
+identlist  ::= COMMA assignment:i identlist:il
+    {: il.add(i); RESULT = il; :}
+     | /* empty identlist*/
+     {: RESULT = new ArrayList<Pair<String,Exp>>(); :}
+    ;
+
+stmtlist  ::= stmt:s stmtlist:sl
+    {: sl=new CompStmt(s,sl); RESULT = sl; :}
+    | /* empty stmtlist */
+    {: RESULT = new NopStmt(); :}
+    ;
+
+write_heap ::= IDENT: i
+        {: int count = 0; RESULT = new Pair<Integer,String>(0,i); :}
+        | BINOPPRIORITY1:op write_heap:i
+        {: if(op=='*')
+                RESULT = new Pair<Integer,String>(i.getKey()+1,i.getValue());
+        :}
+         ;
+
+
+stmt ::= SEMICOLON:s
+    {: RESULT = new NopStmt(sxleft.getLine()); :}
+    | decl:d
+    {:
+      RESULT=d;
+    :}
+    | write_heap:i ASSIGN expr:e SEMICOLON
+    {: //System.out.println("new AssignStmt(\""+i+"\","+ e +","+ixleft.getLine()+")");
+     int references = i.getKey();
+     String identifier = i.getValue();
+     if(references==0)
+        RESULT = new AssignStmt(identifier,e,ixleft.getLine());
+     else
+        RESULT = new wH(identifier,e,references,ixleft.getLine());
+     :}
+     | IF:s LPAR expr:e RPAR BEGIN stmtlist:sl1 END:end
+        {:
+          RESULT = new IfStmt((Exp)e,sl1,new NopStmt(),sxleft.getLine(),endxright.getLine());
+         :}
+     | IF:s LPAR expr:e RPAR BEGIN stmtlist:sl1 END ELSE BEGIN stmtlist:sl2 END:end
+     {:
+        RESULT = new IfStmt((Exp)e,sl1,sl2,sxleft.getLine(),endxright.getLine());
+     :}
+    | WHILE:s LPAR expr:e RPAR BEGIN stmtlist:sl END:end
+    {:
+        RESULT = new WhileStmt(e,sl,sxleft.getLine(),endxright.getLine());
+    :}
+    | FOR:s LPAR stmt:s1 expr:e SEMICOLON stmt:s3 RPAR BEGIN stmtlist:sl END:end
+     {:
+     RESULT = new CompStmt(s1,new WhileStmt((Exp)e,new CompStmt(sl,s3),sxleft.getLine(),endxright.getLine()));
+     :}
+    | GOTO:s expr:e SEMICOLON
+      {:
+          RESULT = new GotoStmt((Exp)e,sxleft.getLine());
+      :}
+
+    | READ_FILE:r LPAR expr:e COMMA IDENT:i RPAR SEMICOLON
+      {:
+      RESULT = new readFile((Exp)e,i,rxleft.getLine());
+      :}
+
+    | WRITE_FILE:r LPAR expr:e1 COMMA expr:e2 RPAR SEMICOLON
+      {:
+      RESULT = new writeFile((Exp)e1,(Exp)e2,rxleft.getLine());
+      :}
+    | PRINT:s LPAR expr:e RPAR SEMICOLON
+    {:
+       RESULT = new PrintStmt((Exp)e,sxleft.getLine());
+    :}
+    | CHANGE_STATUS:c LPAR expr:e1 COMMA expr:e2 RPAR SEMICOLON
+    {:
+       RESULT = new changeStatus((Exp)e1,(Exp)e2,cxleft.getLine());
+    :}
+    | GENERATE_RSA_KEY_PAIR:s LPAR expr:e COMMA IDENT:i1 COMMA IDENT:i2 RPAR SEMICOLON
+     {:
+        RESULT = new GenerateRSAKey((Exp)e,i1,i2,sxleft.getLine());
+     :}
+    | error:e
+    {: parser.report_error("Syntax error, skipped nonsense",e); :}
+    ;
+
+logicexpr ::= BOOLCONST:c
+      {: //System.out.println("BOOLCONST");
+         RESULT = new ValueExp(new BoolValue(c));  :}
+    | expr:e1 COMP:op expr:e2
+    {: //System.out.println("COMP");
+        RESULT = new RelationalExp(op,e1,e2); //RelationalExp
+    :}
+    ;
+
+stringexp ::= STRINGCONST:sc
+    {: //System.out.println("STRINGCONST");
+      RESULT = new ValueExp(new StringValue(sc));  :}
+    ;
+
+identifier ::= IDENT: i
+        {: RESULT = new VarExp(i); :}
+        | BINOPPRIORITY1:op identifier:i
+        {: if(op=='*')
+                RESULT = new rH(i);
+        :}
+         ;
+
+expr ::= INTCONST:c
+    {: //System.out.println("new ValueExp(new IntValue("+c+")");
+      RESULT = new ValueExp(new IntValue(c)); :}
+
+    | LPAR expr:e RPAR
+    {: RESULT = e;
+     :}
+    | expr:e1 BINOPPRIORITY1:op expr:e2
+    {:  //System.out.println("BINOP:op"+op);
+        RESULT = new ArithExp(op,e1, e2);
+    :}
+    | identifier: i
+              {: RESULT = i; :}
+    | expr:e1 BINOPPRIORITY2:op expr:e2
+    {:  //System.out.println("new ArithExp("+op+","+e1+","+ e2+")");
+        RESULT = new ArithExp(op,e1, e2);
+    :}
+    | BINOPPRIORITY2:op expr:e
+    {:  //System.out.println("BINOP:op"+op);
+    if(op=='+')
+        RESULT = e;
+    else if(op=='-')
+        RESULT = new ArithExp('*',e, new ValueExp(new IntValue(-1)));
+    :}
+    | expr:e1 BBINOP:op expr:e2
+     {: RESULT = new LogicExp(op,e1,e2); //LogicExp
+      :}
+    | logicexpr : l
+       {:      //System.out.println("BOOLCONST");
+         RESULT = l;
+       :}
+    | READ
+     {:
+      RESULT = new readFromConsole();
+     :}
+     | READ_HEAP LPAR expr:e RPAR
+     {:
+      RESULT = new rH(e);
+     :}
+     | ENCRYPT_RSA:s LPAR expr:e1 COMMA expr:e2 RPAR
+      {:
+         RESULT = new EncryptRSA((Exp)e1,(Exp)e2,sxleft.getLine());
+      :}
+     | DECRYPT_RSA:s LPAR expr:e1 COMMA expr:e2 RPAR
+       {:
+          RESULT = new DecryptRSA((Exp)e1,(Exp)e2,sxleft.getLine());
+       :}
+    | stringexp:s
+     {: //System.out.println("stringexp");
+        RESULT = s;
+     :}
+
+    ;

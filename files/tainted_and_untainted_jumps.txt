@@ -1,0 +1,15 @@
+int a,b,c;
+goto 4;
+print("this line won't be printed");
+print("input a number:\n");
+a = read();
+b = 6;
+c = a + b;
+goto c;
+
+print("a=");
+print(a);
+print("\nb=");
+print(b);
+print("\nc=");
+print(c);
